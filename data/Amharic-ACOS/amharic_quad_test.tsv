@@ -1,0 +1,8 @@
+ምግቡ ጥሩ ቢሆንም ዋጋው ውድ ነው ።	0,1 FOOD#QUALITY 2 1,2	-1,-1 FOOD#PRICE 0 3,4
+አገልግሎቱ ፈጣን ፣ ሠራተኞቹ ደጋፊ ናቸው ።	0,1 SERVICE#GENERAL 2 1,2	2,3 STAFF#QUALITY 2 3,4
+ቦታው ጸጥ ያለ ሆኖ ምቹ ነው ።	0,1 AMBIENCE#GENERAL 2 2,3	0,1 AMBIENCE#GENERAL 2 4,5
+ምርቱ ቢያዘገይም ጥራቱ ጥሩ ነበር ።	0,1 DELIVERY#QUALITY 0 1,2	0,1 PRODUCT#QUALITY 2 4,5
+ሬስቶራንቱ ዝናው ከምንጠብቀው በታች ነበር ።	0,1 RESTAURANT#GENERAL 0 -1,-1
+ቡናው ጥሩ ፣ ዋጋውም ምቹ ነው ።	0,1 DRINKS#QUALITY 2 1,2	0,1 DRINKS#PRICE 2 3,4
+ሰራተኞቹ ትእዛዝ ሳይቀበሉ ረጅም ጊዜ ቆሙ ።	0,1 STAFF#GENERAL 0 -1,-1	-1,-1 SERVICE#GENERAL 0 -1,-1
+ሱቁ ብዙ አይነት አለ ፣ ዋጋውም ተመጣጣኝ ነው ።	0,1 SHOP#STYLE_OPTIONS 2 2,3	0,1 SHOP#PRICES 2 4,5

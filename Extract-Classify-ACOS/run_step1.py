@@ -30,9 +30,13 @@ import math
 import codecs as cs
 from sklearn.model_selection import KFold
 
-gm = GPUManager()
-device = gm.auto_choice(mode=0)
-os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+try:
+    gm = GPUManager()
+    device = gm.auto_choice(mode=0)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+except Exception:
+    # GPU not available or nvidia-smi not found; continue with CPU
+    pass
 
 import numpy as np
 

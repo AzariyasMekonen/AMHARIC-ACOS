@@ -14,9 +14,13 @@ import codecs as cs
 from sklearn.model_selection import KFold
 from dataset_utils import *
 
-gm = GPUManager()
-device = gm.auto_choice(mode=0)
-os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+try:
+    gm = GPUManager()
+    device = gm.auto_choice(mode=0)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+except Exception:
+    # GPU not available; continue with CPU
+    pass
 
 import numpy as np
 
@@ -132,8 +136,8 @@ def main():
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     
     args = parser.parse_args()
-    device = torch.device("cuda")
-    n_gpu = torch.cuda.device_count()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    n_gpu = torch.cuda.device_count() if torch.cuda.is_available() else 0
 
     logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                         datefmt = '%m/%d/%Y %H:%M:%S',

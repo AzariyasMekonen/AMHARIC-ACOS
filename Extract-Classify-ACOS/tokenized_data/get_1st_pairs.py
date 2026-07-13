@@ -7,13 +7,21 @@ import sys
 base_dir = sys.argv[1]
 domian_type = sys.argv[2]
 
-cur_dir = base_dir+'/output/Extract-Classify-QUAD/'+domian_type
+# Normalize base_dir to an absolute path
+base_dir = os.path.abspath(base_dir)
 
-if not os.path.exists(cur_dir+'_1st'):
-    os.makedirs(cur_dir+'_1st')
+cur_dir = os.path.join(base_dir, 'output', 'Extract-Classify-QUAD', domian_type)
 
-f = cs.open(cur_dir+'_1st'+'/pred4pipeline.txt', 'r').readlines()
-wf = cs.open(base_dir+'/ACOS-main/Extract-Classify-ACOS/tokenized_data/'+domian_type+'_test_pair_1st.tsv', 'w')
+if not os.path.exists(cur_dir + '_1st'):
+    os.makedirs(cur_dir + '_1st')
+
+f = cs.open(os.path.join(cur_dir + '_1st', 'pred4pipeline.txt'), 'r').readlines()
+
+# Write the pair file into the local tokenized_data directory under base_dir
+tokenized_out_dir = os.path.join(base_dir, 'tokenized_data')
+if not os.path.exists(tokenized_out_dir):
+    os.makedirs(tokenized_out_dir)
+wf = cs.open(os.path.join(tokenized_out_dir, domian_type + '_test_pair_1st.tsv'), 'w')
 
 for line in f:
     asp = []; opi = []

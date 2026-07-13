@@ -214,6 +214,34 @@ class CategorySentiProcessor(DataProcessor):
         if domain_type.startswith('rest'):
             l = ['RESTAURANT#GENERAL', 'SERVICE#GENERAL', 'FOOD#GENERAL', 'FOOD#QUALITY', 'FOOD#STYLE_OPTIONS', 'DRINKS#STYLE_OPTIONS', 'DRINKS#PRICES', 
             'AMBIENCE#GENERAL', 'RESTAURANT#PRICES', 'FOOD#PRICES', 'RESTAURANT#MISCELLANEOUS', 'DRINKS#QUALITY', 'LOCATION#GENERAL']
+        elif domain_type == 'amharic':
+            # General-purpose Amharic aspect categories covering restaurant,
+            # retail, and service domains commonly annotated in Ethiopian review data.
+            # Sentiment indices: 0=negative, 1=neutral, 2=positive (same as English domains).
+            l = [
+                # Food & Beverage
+                'FOOD#QUALITY', 'FOOD#PRICE', 'FOOD#STYLE_OPTIONS', 'FOOD#GENERAL',
+                # Drinks
+                'DRINKS#QUALITY', 'DRINKS#PRICE', 'DRINKS#STYLE_OPTIONS', 'DRINKS#GENERAL',
+                # Service
+                'SERVICE#GENERAL', 'SERVICE#QUALITY',
+                # Ambience / Environment
+                'AMBIENCE#GENERAL', 'AMBIENCE#DESIGN_FEATURES',
+                # Location
+                'LOCATION#GENERAL', 'LOCATION#ACCESSIBILITY',
+                # Restaurant / Establishment
+                'RESTAURANT#GENERAL', 'RESTAURANT#PRICES', 'RESTAURANT#MISCELLANEOUS',
+                # Retail / Shop
+                'SHOP#GENERAL', 'SHOP#PRICES', 'SHOP#QUALITY', 'SHOP#STYLE_OPTIONS',
+                # Product (generic goods)
+                'PRODUCT#GENERAL', 'PRODUCT#QUALITY', 'PRODUCT#PRICE', 'PRODUCT#DESIGN_FEATURES',
+                # Delivery / Shipping
+                'DELIVERY#GENERAL', 'DELIVERY#QUALITY', 'DELIVERY#PRICE',
+                # Staff / Personnel
+                'STAFF#GENERAL', 'STAFF#QUALITY',
+                # Value for money (cross-cutting)
+                'VALUE#GENERAL',
+            ]
         elif domain_type == 'laptop':
             l = ['MULTIMEDIA_DEVICES#PRICE', 'OS#QUALITY', 'SHIPPING#QUALITY', 'GRAPHICS#OPERATION_PERFORMANCE', 'CPU#OPERATION_PERFORMANCE', 
             'COMPANY#DESIGN_FEATURES', 'MEMORY#OPERATION_PERFORMANCE', 'SHIPPING#PRICE', 'POWER_SUPPLY#CONNECTIVITY', 'SOFTWARE#USABILITY', 

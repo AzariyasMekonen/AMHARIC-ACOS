@@ -1,0 +1,8 @@
+ምግቡ ጣፋጭ ነው ፣ ግን አገልግሎቱ ቀርፋፋ ነበር ።	0,1 FOOD#QUALITY 2 1,2	3,4 SERVICE#GENERAL 0 4,5
+ቦታው ሰፊ እና ምቹ ሆኖ ሬስቶራንቱ ሞልቶ ነበር ።	0,1 AMBIENCE#GENERAL 2 1,2	0,1 AMBIENCE#GENERAL 2 3,4
+ምርቱ ቶሎ ደረሰ እና ጥሩ ሁኔታ ላይ ነበር ።	0,1 DELIVERY#QUALITY 2 2,3	0,1 PRODUCT#QUALITY 2 5,7
+ዋጋው ትንሽ ውድ ሆኖ ቢሆንም ጥራቱ ጥሩ ነው ።	0,1 RESTAURANT#PRICES 0 2,3	-1,-1 FOOD#QUALITY 2 6,7
+ሰራተኞቹ ወዳጃዊ ሆኖ አፍ አዋቂ ናቸው ።	0,1 STAFF#GENERAL 2 1,2	0,1 STAFF#QUALITY 2 3,4
+ቡናውና ሻዩ ጣፋጭ ፣ ዋጋቸውም ርካሽ ነው ።	0,2 DRINKS#QUALITY 2 2,3	0,2 DRINKS#PRICE 2 4,5
+ሱቁ ለደንበኞቹ ወደ ቦታው ለመድረስ አስቸጋሪ ነው ።	0,1 LOCATION#ACCESSIBILITY 0 4,6
+ምናሌው ብዙ አማራጭ አለው ፣ ለቬጀቴሪያን ጭምር ።	0,1 FOOD#STYLE_OPTIONS 2 2,3	-1,-1 FOOD#STYLE_OPTIONS 2 -1,-1
