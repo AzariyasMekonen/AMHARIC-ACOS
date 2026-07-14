@@ -22,6 +22,33 @@ from torch.nn import CrossEntropyLoss, MSELoss, MultiLabelSoftMarginLoss, BCEWit
 
 from run_classifier_dataset_utils import compute_metrics
 
+def _decode_token_ids(tokenizer, ids):
+    """
+    Convert a list of token IDs to a clean, space-joined text string that is
+    consistent regardless of whether the tokenizer is a BertTokenizer or an
+    AutoTokenizer shim (XLM-R / AfriBERTa).
+
+    - BERT:  tokens look like  ['[CLS]', 'hello', '##world', '[SEP]']
+    - XLM-R: tokens look like  ['<s>', '▁hello', 'world', '</s>']
+
+    We strip SentencePiece '▁' word-boundary markers and model-specific
+    special tokens so that the reconstructed string is the same surface text
+    in both cases.  This is only used for the pipeline output files
+    (pred4pipeline.txt, result.txt) — not for the actual model inputs.
+    """
+    SPECIAL_STRIP = {'[CLS]', '[SEP]', '[PAD]', '<s>', '</s>', '<pad>', '<unk>'}
+    raw_tokens = tokenizer.convert_ids_to_tokens(ids)
+    clean = []
+    for tok in raw_tokens:
+        if tok in SPECIAL_STRIP:
+            continue
+        # Remove SentencePiece word-boundary prefix
+        tok = tok.lstrip('▁')
+        if tok:
+            clean.append(tok)
+    return ' '.join(clean)
+
+
 def measureQuad(pred, gold):
     tp = .0
     fp = .0
@@ -80,7 +107,7 @@ def pred_eval(_e, args, logger, tokenizer, model, dataloader, eval_gold, label_l
         
         cur_input = ' '.join(str(ele) for ele in input_text[index//3])
         golds[cur_input] = gold_tag
-        ids_to_token[cur_input] = ' '.join(ele for ele in tokenizer.convert_ids_to_tokens(input_text[index//3]))
+        ids_to_token[cur_input] = _decode_token_ids(tokenizer, input_text[index//3])
 
     for step, batch in enumerate(dataloader):
 
@@ -133,8 +160,8 @@ def pred_eval(_e, args, logger, tokenizer, model, dataloader, eval_gold, label_l
         pipeline_file = cs.open(args.output_dir+os.sep+'pred4pipeline.txt', 'w')
     for text in preds:
         length = input_length_map[text]-1
-        cur_text = ids_to_token[text]
-        cur_text = cur_text.split(' ')[1:length]
+        # ids_to_token[text] is already clean (no [CLS]/[SEP]/▁ prefixes)
+        cur_text = ids_to_token[text].split(' ')[:length-1]
         if len(preds[text]) > 0:
             pipeline_file.write(' '.join(ele for ele in cur_text)+'\t'+'\t'.join(ele for ele in preds[text])+'\n')
 
@@ -232,8 +259,8 @@ def pair_eval(_e, args, logger, tokenizer, model, dataloader, gold, label_list, 
         cur_input = ' '.join(str(ele) for ele in input_text[index])
         cur_input = cur_input+' '+cur_quad[0]
         golds[cur_input] = cur_quad[1:]
-        ori_text = ' '.join(ele for ele in tokenizer.convert_ids_to_tokens(input_text[index]))
-        ids_to_token[cur_input] = ori_text+' '+cur_quad[0]
+        ori_text = _decode_token_ids(tokenizer, input_text[index])
+        ids_to_token[cur_input] = ori_text + ' ' + cur_quad[0]
 
         quad_pairs = []
         for ele in cur_quad[1:]:
@@ -307,7 +334,7 @@ def pair_eval(_e, args, logger, tokenizer, model, dataloader, gold, label_list, 
                     if tmp_quad not in quad_pairs:
                         quad_pairs.append(tmp_quad)
                 tmp_cnt += len(quad_pairs)
-                ori_text = ' '.join(ele for ele in tokenizer.convert_ids_to_tokens(ttt))
+                ori_text = _decode_token_ids(tokenizer, ttt)
                 if ori_text in quad_preds:
                     quad_preds[ori_text] += quad_pairs
                 else:

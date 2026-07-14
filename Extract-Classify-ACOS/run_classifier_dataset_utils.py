@@ -302,6 +302,54 @@ class CategorySentiProcessor(DataProcessor):
         return examples
 
 
+def _get_special_token_id(tokenizer, bert_name):
+    """
+    Return the token-ID for a BERT-style special token name ([CLS], [SEP], [PAD])
+    regardless of whether the tokenizer is a plain BertTokenizer or a
+    transformers AutoTokenizer shim (XLM-R, AfriBERTa, mBERT, etc.).
+
+    Mapping:
+        [CLS]  -> tokenizer.cls_token  (XLM-R: <s>,   BERT: [CLS])
+        [SEP]  -> tokenizer.sep_token  (XLM-R: </s>,  BERT: [SEP])
+        [PAD]  -> tokenizer.pad_token  (XLM-R: <pad>, BERT: [PAD])
+    Falls back to vocab lookup and finally to 0 so the pipeline never crashes.
+    """
+    _map = {'[CLS]': 'cls_token', '[SEP]': 'sep_token', '[PAD]': 'pad_token'}
+    attr = _map.get(bert_name)
+    if attr is not None:
+        # AutoTokenizer path — has cls_token / sep_token attributes
+        hf_tok = getattr(tokenizer, '_tok', tokenizer)
+        special_str = getattr(hf_tok, attr, None)
+        if special_str is not None:
+            vocab = getattr(hf_tok, 'get_vocab', None)
+            if vocab:
+                return vocab().get(special_str, 0)
+            ids = getattr(hf_tok, 'convert_tokens_to_ids', None)
+            if ids:
+                return ids([special_str])[0]
+    # Plain BertTokenizer path — direct vocab lookup
+    vocab = getattr(tokenizer, 'vocab', {})
+    return vocab.get(bert_name, 0)
+
+
+def _tokens_to_ids(tokenizer, tokens):
+    """
+    Convert a list of token strings to IDs.  Intercepts BERT special-token
+    strings ([CLS], [SEP]) so they map to the model's own special tokens
+    instead of <unk> when using XLM-R / AfriBERTa.
+    """
+    BERT_SPECIAL = {'[CLS]', '[SEP]', '[PAD]'}
+    result = []
+    for tok in tokens:
+        if tok in BERT_SPECIAL:
+            result.append(_get_special_token_id(tokenizer, tok))
+        else:
+            # Delegate to whatever the tokenizer provides
+            ids = tokenizer.convert_tokens_to_ids([tok])
+            result.append(ids[0] if isinstance(ids, list) else ids)
+    return result
+
+
 def convert_examples_to_features(examples, label_list, max_seq_length,
                                  tokenizer, output_mode, task_name):
     """Loads a data file into a list of `InputBatch`s."""
@@ -364,7 +412,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         aspect_ids.append(label_map_seq['[CLS]'])
         aspect_segment_ids.append(0)
 
-        aspect_input_ids = tokenizer.convert_tokens_to_ids(aspect_tokens)
+        aspect_input_ids = _tokens_to_ids(tokenizer, aspect_tokens)
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
         # tokens are attended to.
         aspect_input_mask = [1] * len(aspect_input_ids)
@@ -462,7 +510,7 @@ def convert_examples_to_features2nd(examples, label_list, max_seq_length,
         tokens_len = len(aspect_tokens)
         aspect_segment_ids.append(0)
 
-        aspect_input_ids = tokenizer.convert_tokens_to_ids(aspect_tokens)
+        aspect_input_ids = _tokens_to_ids(tokenizer, aspect_tokens)
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
         # tokens are attended to.
         aspect_input_mask = [1] * len(aspect_input_ids)
