@@ -42,10 +42,11 @@ def _decode_token_ids(tokenizer, ids):
     for tok in raw_tokens:
         if tok in SPECIAL_STRIP:
             continue
-        # Remove SentencePiece word-boundary prefix
-        tok = tok.lstrip('▁')
-        if tok:
-            clean.append(tok)
+        # Remove SentencePiece word-boundary prefix '▁'
+        # Also handle the rare case where the piece is just '▁' (standalone)
+        stripped = tok.lstrip('▁')
+        if stripped:
+            clean.append(stripped)
     return ' '.join(clean)
 
 

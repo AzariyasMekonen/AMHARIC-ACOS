@@ -334,19 +334,38 @@ def _get_special_token_id(tokenizer, bert_name):
 
 def _tokens_to_ids(tokenizer, tokens):
     """
-    Convert a list of token strings to IDs.  Intercepts BERT special-token
-    strings ([CLS], [SEP]) so they map to the model's own special tokens
-    instead of <unk> when using XLM-R / AfriBERTa.
+    Convert a list of token strings to IDs.
+
+    The pipeline passes whitespace-split raw words (not pre-tokenized sub-words).
+    BERT's vocab contains whole words so direct lookup works.
+    XLM-R / SentencePiece vocabs do NOT contain plain words — they contain
+    sub-word pieces with '▁' word-boundary prefixes. For those we run
+    tokenizer.tokenize() on each word to get the pieces, look up their IDs,
+    and use the FIRST piece ID to represent the word position (consistent with
+    how the span labels are word-level, not sub-word level).
+
+    BERT special tokens ([CLS], [SEP], [PAD]) are mapped to the model's own
+    equivalents (<s>, </s>, <pad>) via _get_special_token_id().
     """
     BERT_SPECIAL = {'[CLS]', '[SEP]', '[PAD]'}
     result = []
     for tok in tokens:
         if tok in BERT_SPECIAL:
             result.append(_get_special_token_id(tokenizer, tok))
+            continue
+        # Try direct vocab lookup first (works for BERT whole-word vocab)
+        direct = getattr(tokenizer, 'vocab', {}).get(tok)
+        if direct is not None:
+            result.append(direct)
+            continue
+        # SentencePiece path (XLM-R, AfriBERTa): tokenize the word and take
+        # the first piece's ID to represent this word-level position
+        hf_tok = getattr(tokenizer, '_tok', tokenizer)
+        pieces = hf_tok.tokenize(tok)
+        if pieces:
+            result.append(hf_tok.convert_tokens_to_ids(pieces)[0])
         else:
-            # Delegate to whatever the tokenizer provides
-            ids = tokenizer.convert_tokens_to_ids([tok])
-            result.append(ids[0] if isinstance(ids, list) else ids)
+            result.append(getattr(hf_tok, 'unk_token_id', 3))
     return result
 
 
