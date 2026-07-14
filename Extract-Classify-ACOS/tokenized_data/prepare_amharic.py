@@ -40,16 +40,43 @@ repo_dir = os.path.dirname(script_dir)  # Extract-Classify-ACOS/
 if repo_dir not in sys.path:
     sys.path.insert(0, repo_dir)
 
-from bert_utils.tokenization import BertTokenizer
+
+def _is_bert_model(name: str) -> bool:
+    """Return True if the model name/path looks like a plain BERT variant."""
+    base = os.path.basename(name.rstrip('/\\' )).lower()
+    return base.startswith('bert-') or base.startswith('bert_')
+
+
+def _load_tokenizer(model_name: str, do_lower_case: bool):
+    """
+    Load a tokenizer appropriate for the model name.
+
+    - BERT names  → use the local bert_utils.BertTokenizer (no external deps)
+    - Everything else (XLM-RoBERTa, AfriBERTa, …) → use transformers.AutoTokenizer
+    """
+    if _is_bert_model(model_name):
+        from bert_utils.tokenization import BertTokenizer
+        print(f'Using bert_utils.BertTokenizer for {model_name}')
+        return BertTokenizer.from_pretrained(model_name, do_lower_case=do_lower_case)
+    else:
+        try:
+            from transformers import AutoTokenizer
+        except ImportError:
+            raise ImportError(
+                'transformers is required for non-BERT models. '
+                'Install it with: pip install transformers sentencepiece'
+            )
+        print(f'Using transformers.AutoTokenizer for {model_name}')
+        return AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def tokenize_and_realign(text: str, tokenizer: BertTokenizer):
+def tokenize_and_realign(text: str, tokenizer):
     """
-    Tokenize a whitespace-split Amharic sentence with the BertTokenizer and
+    Tokenize a whitespace-split Amharic sentence with the tokenizer and
     return a mapping from original word index -> (first_wp_idx, last_wp_idx+1).
 
     Because mBERT may split Amharic words into sub-word pieces, we need to
@@ -83,7 +110,7 @@ def convert_quad_tsv_to_bert(in_path: str, out_path: str):
     print(f'  Wrote {len(lines)} lines -> {out_path}')
 
 
-def convert_quad_tsv_to_pair(in_path: str, out_path: str, tokenizer: BertTokenizer):
+def convert_quad_tsv_to_pair(in_path: str, out_path: str, tokenizer):
     """
     Convert a quad TSV into a pair TSV for Step 2.
 
@@ -155,9 +182,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
 
     print(f'Loading tokenizer from {args.bert_model} ...')
-    tokenizer = BertTokenizer.from_pretrained(
-        args.bert_model, do_lower_case=args.do_lower_case
-    )
+    tokenizer = _load_tokenizer(args.bert_model, args.do_lower_case)
 
     splits = [
         ('train', 'amharic_quad_train.tsv'),

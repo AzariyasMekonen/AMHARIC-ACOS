@@ -215,32 +215,45 @@ class CategorySentiProcessor(DataProcessor):
             l = ['RESTAURANT#GENERAL', 'SERVICE#GENERAL', 'FOOD#GENERAL', 'FOOD#QUALITY', 'FOOD#STYLE_OPTIONS', 'DRINKS#STYLE_OPTIONS', 'DRINKS#PRICES', 
             'AMBIENCE#GENERAL', 'RESTAURANT#PRICES', 'FOOD#PRICES', 'RESTAURANT#MISCELLANEOUS', 'DRINKS#QUALITY', 'LOCATION#GENERAL']
         elif domain_type == 'amharic':
-            # General-purpose Amharic aspect categories covering restaurant,
-            # retail, and service domains commonly annotated in Ethiopian review data.
-            # Sentiment indices: 0=negative, 1=neutral, 2=positive (same as English domains).
+            # 23 aspect categories derived from CAC_DA_Amh_Sentiment_Quadruple_Dataset.csv
+            # — an Amharic social-media / public-affairs corpus.
+            # The 26 raw CSV categories are collapsed to these canonical DOMAIN#ATTRIBUTE
+            # strings by csv_to_acos_tsv.py (near-duplicate spelling variants are merged).
+            # Any label in your TSV data that is NOT listed here will raise a KeyError
+            # at training time, so keep this list in sync with CATEGORY_MAP in the
+            # conversion script.
+            # Sentiment: 0=negative  1=neutral  2=positive
             l = [
-                # Food & Beverage
-                'FOOD#QUALITY', 'FOOD#PRICE', 'FOOD#STYLE_OPTIONS', 'FOOD#GENERAL',
-                # Drinks
-                'DRINKS#QUALITY', 'DRINKS#PRICE', 'DRINKS#STYLE_OPTIONS', 'DRINKS#GENERAL',
-                # Service
-                'SERVICE#GENERAL', 'SERVICE#QUALITY',
-                # Ambience / Environment
-                'AMBIENCE#GENERAL', 'AMBIENCE#DESIGN_FEATURES',
-                # Location
-                'LOCATION#GENERAL', 'LOCATION#ACCESSIBILITY',
-                # Restaurant / Establishment
-                'RESTAURANT#GENERAL', 'RESTAURANT#PRICES', 'RESTAURANT#MISCELLANEOUS',
-                # Retail / Shop
-                'SHOP#GENERAL', 'SHOP#PRICES', 'SHOP#QUALITY', 'SHOP#STYLE_OPTIONS',
-                # Product (generic goods)
-                'PRODUCT#GENERAL', 'PRODUCT#QUALITY', 'PRODUCT#PRICE', 'PRODUCT#DESIGN_FEATURES',
-                # Delivery / Shipping
-                'DELIVERY#GENERAL', 'DELIVERY#QUALITY', 'DELIVERY#PRICE',
-                # Staff / Personnel
-                'STAFF#GENERAL', 'STAFF#QUALITY',
-                # Value for money (cross-cutting)
-                'VALUE#GENERAL',
+                # Economy
+                'ECONOMY#COMMUNITY_SUPPORT',
+                'ECONOMY#EMPLOYMENT',
+                'ECONOMY#TAXATION',
+                'ECONOMY#UTILITIES',
+                # Governance & Legislation
+                'GOVERNANCE#CITIZEN_ENGAGEMENT',
+                'GOVERNANCE#COMMUNITY_SUPPORT',
+                'GOVERNANCE#LEGISLATION',
+                'GOVERNANCE#TRANSPARENCY',
+                # Healthcare
+                'HEALTHCARE#GENERAL',
+                # Infrastructure
+                'INFRASTRUCTURE#TRANSPORTATION',
+                'INFRASTRUCTURE#UTILITIES',
+                # Public Safety
+                'PUBLIC_SAFETY#CRIME',
+                'PUBLIC_SAFETY#CRIME_SERVICES',
+                'PUBLIC_SAFETY#EMERGENCY_SERVICES',
+                # Public Services
+                'PUBLIC_SERVICES#COMMUNITY_SUPPORT',
+                'PUBLIC_SERVICES#EDUCATION',
+                'PUBLIC_SERVICES#EMERGENCY_SERVICES',
+                'PUBLIC_SERVICES#HEALTHCARE',
+                'PUBLIC_SERVICES#INFRASTRUCTURE',
+                'PUBLIC_SERVICES#UTILITIES',
+                # Social Issues
+                'SOCIAL#COMMUNITY_SUPPORT',
+                'SOCIAL#EDUCATION',
+                'SOCIAL#EQUALITY_JUSTICE',
             ]
         elif domain_type == 'laptop':
             l = ['MULTIMEDIA_DEVICES#PRICE', 'OS#QUALITY', 'SHIPPING#QUALITY', 'GRAPHICS#OPERATION_PERFORMANCE', 'CPU#OPERATION_PERFORMANCE', 
