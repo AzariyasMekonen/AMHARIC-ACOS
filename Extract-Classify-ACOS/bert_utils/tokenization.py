@@ -117,23 +117,37 @@ class _AutoTokenizerShim:
         Three-level lookup:
         1. BERT special tokens → model's own special token IDs
         2. Direct vocab hit    → works for BERT whole-word vocab
-        3. SentencePiece path  → tokenize the word, take the first piece ID
+        3. SentencePiece batch → batch_encode_plus all unknown words at once,
+           take the first piece ID per word (word-level span alignment)
         """
-        result = []
-        for tok in tokens:
-            if tok in self._SPECIAL:
-                result.append(self._special_id(tok))
-                continue
-            direct = self.vocab.get(tok)
-            if direct is not None:
-                result.append(direct)
-                continue
-            # SentencePiece: tokenize → first piece
-            pieces = self._tok.tokenize(tok)
-            if pieces:
-                result.append(self._tok.convert_tokens_to_ids(pieces)[0])
+        BERT_SPECIAL = {'[CLS]', '[SEP]', '[PAD]'}
+        result = [None] * len(tokens)
+        needs_sp = []   # (position, word) for words needing SentencePiece
+
+        for i, tok in enumerate(tokens):
+            if tok in BERT_SPECIAL:
+                result[i] = self._special_id(tok)
             else:
-                result.append(getattr(self._tok, 'unk_token_id', 3))
+                direct = self.vocab.get(tok)
+                if direct is not None:
+                    result[i] = direct
+                else:
+                    needs_sp.append((i, tok))
+
+        if needs_sp:
+            words = [w for _, w in needs_sp]
+            try:
+                encoded = self._tok.batch_encode_plus(
+                    words, add_special_tokens=False, return_attention_mask=False
+                )
+                for (i, _), ids_list in zip(needs_sp, encoded['input_ids']):
+                    result[i] = ids_list[0] if ids_list else getattr(self._tok, 'unk_token_id', 3)
+            except Exception:
+                for i, word in needs_sp:
+                    pieces = self._tok.tokenize(word)
+                    result[i] = (self._tok.convert_tokens_to_ids(pieces)[0]
+                                 if pieces else getattr(self._tok, 'unk_token_id', 3))
+
         return result
 
     def convert_ids_to_tokens(self, ids):

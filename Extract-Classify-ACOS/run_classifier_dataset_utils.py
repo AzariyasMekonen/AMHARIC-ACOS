@@ -336,36 +336,73 @@ def _tokens_to_ids(tokenizer, tokens):
     """
     Convert a list of token strings to IDs.
 
-    The pipeline passes whitespace-split raw words (not pre-tokenized sub-words).
-    BERT's vocab contains whole words so direct lookup works.
-    XLM-R / SentencePiece vocabs do NOT contain plain words — they contain
-    sub-word pieces with '▁' word-boundary prefixes. For those we run
-    tokenizer.tokenize() on each word to get the pieces, look up their IDs,
-    and use the FIRST piece ID to represent the word position (consistent with
-    how the span labels are word-level, not sub-word level).
-
-    BERT special tokens ([CLS], [SEP], [PAD]) are mapped to the model's own
-    equivalents (<s>, </s>, <pad>) via _get_special_token_id().
+    Three-level lookup:
+    1. BERT special tokens ([CLS], [SEP], [PAD]) → model's own special token IDs
+    2. Direct vocab hit → works for BERT whole-word vocab
+    3. SentencePiece batch path (XLM-R, AfriBERTa) → encode all non-special,
+       non-vocab words in one batched call, then take the first piece ID per word.
     """
     BERT_SPECIAL = {'[CLS]', '[SEP]', '[PAD]'}
-    result = []
-    for tok in tokens:
+
+    # Separate special tokens and regular words; track positions
+    specials_mask = []          # True where token is a BERT special
+    regular_indices = []        # positions of non-special tokens
+    regular_words = []          # the non-special token strings
+
+    for i, tok in enumerate(tokens):
         if tok in BERT_SPECIAL:
-            result.append(_get_special_token_id(tokenizer, tok))
-            continue
-        # Try direct vocab lookup first (works for BERT whole-word vocab)
-        direct = getattr(tokenizer, 'vocab', {}).get(tok)
-        if direct is not None:
-            result.append(direct)
-            continue
-        # SentencePiece path (XLM-R, AfriBERTa): tokenize the word and take
-        # the first piece's ID to represent this word-level position
-        hf_tok = getattr(tokenizer, '_tok', tokenizer)
-        pieces = hf_tok.tokenize(tok)
-        if pieces:
-            result.append(hf_tok.convert_tokens_to_ids(pieces)[0])
+            specials_mask.append(True)
         else:
-            result.append(getattr(hf_tok, 'unk_token_id', 3))
+            specials_mask.append(False)
+            regular_indices.append(i)
+            regular_words.append(tok)
+
+    # Try direct vocab lookup for all regular words at once (BERT path)
+    vocab = getattr(tokenizer, 'vocab', {})
+    needs_sp = []               # indices into regular_words that need SentencePiece
+    direct_ids = {}             # regular_index -> id for direct hits
+
+    for ri, word in zip(regular_indices, regular_words):
+        direct = vocab.get(word)
+        if direct is not None:
+            direct_ids[ri] = direct
+        else:
+            needs_sp.append(ri)
+
+    # Batch SentencePiece tokenization for all remaining words in one call
+    sp_ids = {}
+    if needs_sp:
+        hf_tok = getattr(tokenizer, '_tok', tokenizer)
+        # Batch-encode all unknown words separated by spaces as a single call
+        # Using batch_encode_plus for true batching
+        needs_sp_words = [tokens[ri] for ri in needs_sp]
+        try:
+            # Fast path: batch_encode_plus processes all words in parallel
+            encoded = hf_tok.batch_encode_plus(
+                needs_sp_words,
+                add_special_tokens=False,
+                return_attention_mask=False,
+            )
+            for ri, ids_list in zip(needs_sp, encoded['input_ids']):
+                sp_ids[ri] = ids_list[0] if ids_list else getattr(hf_tok, 'unk_token_id', 3)
+        except Exception:
+            # Fallback: one at a time
+            for ri, word in zip(needs_sp, needs_sp_words):
+                pieces = hf_tok.tokenize(word)
+                if pieces:
+                    sp_ids[ri] = hf_tok.convert_tokens_to_ids(pieces)[0]
+                else:
+                    sp_ids[ri] = getattr(hf_tok, 'unk_token_id', 3)
+
+    # Assemble result in original order
+    result = []
+    for i, tok in enumerate(tokens):
+        if specials_mask[i]:
+            result.append(_get_special_token_id(tokenizer, tok))
+        elif i in direct_ids:
+            result.append(direct_ids[i])
+        else:
+            result.append(sp_ids[i])
     return result
 
 
