@@ -83,6 +83,75 @@ def whitespace_tokenize(text):
     return tokens
 
 
+class _AutoTokenizerShim:
+    """
+    Thin wrapper around transformers.AutoTokenizer that exposes the
+    BertTokenizer API used by the Extract-Classify-ACOS pipeline.
+
+    This allows XLM-RoBERTa, AfriBERTa, and other non-BERT models to be used
+    without changing any pipeline source files.  BertTokenizer.from_pretrained()
+    returns an instance of this class when the model name is not a known BERT
+    variant.
+    """
+
+    _SPECIAL = {'[CLS]': 'cls_token', '[SEP]': 'sep_token', '[PAD]': 'pad_token'}
+
+    def __init__(self, hf_tok):
+        self._tok = hf_tok
+        self.vocab = {v: k for k, v in hf_tok.get_vocab().items()}
+        self.ids_to_tokens = {k: v for v, k in self.vocab.items()}
+
+    def _special_id(self, bert_name):
+        """Map [CLS]/[SEP]/[PAD] to the model's own special-token ID."""
+        attr = self._SPECIAL.get(bert_name)
+        if attr:
+            special_str = getattr(self._tok, attr, None)
+            if special_str is not None:
+                return self._tok.get_vocab().get(special_str, 0)
+        return self.vocab.get(bert_name, 0)
+
+    def convert_tokens_to_ids(self, tokens):
+        """
+        Convert token strings to IDs.
+
+        Three-level lookup:
+        1. BERT special tokens → model's own special token IDs
+        2. Direct vocab hit    → works for BERT whole-word vocab
+        3. SentencePiece path  → tokenize the word, take the first piece ID
+        """
+        result = []
+        for tok in tokens:
+            if tok in self._SPECIAL:
+                result.append(self._special_id(tok))
+                continue
+            direct = self.vocab.get(tok)
+            if direct is not None:
+                result.append(direct)
+                continue
+            # SentencePiece: tokenize → first piece
+            pieces = self._tok.tokenize(tok)
+            if pieces:
+                result.append(self._tok.convert_tokens_to_ids(pieces)[0])
+            else:
+                result.append(getattr(self._tok, 'unk_token_id', 3))
+        return result
+
+    def convert_ids_to_tokens(self, ids):
+        return self._tok.convert_ids_to_tokens(ids)
+
+    def tokenize(self, text):
+        return self._tok.tokenize(text)
+
+    def save_vocabulary(self, save_dir, filename_prefix=None):
+        import os as _os
+        _os.makedirs(save_dir, exist_ok=True)
+        saved = self._tok.save_pretrained(save_dir)
+        return (save_dir,)
+
+    def __call__(self, text, **kwargs):
+        return self._tok(text, **kwargs)
+
+
 class BertTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
 
@@ -166,7 +235,27 @@ class BertTokenizer(object):
         """
         Instantiate a PreTrainedBertModel from a pre-trained model file.
         Download and cache the pre-trained model file if needed.
+
+        If the model name is not a known BERT variant (e.g. xlm-roberta-base,
+        castorini/afriberta_large), delegates to transformers.AutoTokenizer and
+        returns an _AutoTokenizerShim that exposes the same API as BertTokenizer.
         """
+        # ── Non-BERT models: delegate to transformers.AutoTokenizer ──────────
+        _BERT_PREFIXES = ('bert-', 'bert_')
+        _base = os.path.basename(pretrained_model_name_or_path.rstrip('/\\')).lower()
+        _is_bert = any(_base.startswith(p) for p in _BERT_PREFIXES)
+        if not _is_bert and pretrained_model_name_or_path not in PRETRAINED_VOCAB_ARCHIVE_MAP:
+            try:
+                from transformers import AutoTokenizer as _AT
+                _hf = _AT.from_pretrained(pretrained_model_name_or_path, use_fast=True)
+                logger.info("Loaded '%s' via transformers.AutoTokenizer", pretrained_model_name_or_path)
+                return _AutoTokenizerShim(_hf)
+            except Exception as _e:
+                logger.warning("transformers.AutoTokenizer failed for '%s': %s",
+                               pretrained_model_name_or_path, _e)
+                # fall through to original BERT path (will fail gracefully)
+        # ─────────────────────────────────────────────────────────────────────
+
         if pretrained_model_name_or_path in PRETRAINED_VOCAB_ARCHIVE_MAP:
             vocab_file = PRETRAINED_VOCAB_ARCHIVE_MAP[pretrained_model_name_or_path]
             if '-cased' in pretrained_model_name_or_path and kwargs.get('do_lower_case', True):
